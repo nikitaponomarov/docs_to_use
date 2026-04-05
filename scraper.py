@@ -1,0 +1,52 @@
+import requests
+from bs4 import BeautifulSoup
+import re
+
+class WebScrapper:
+    """Simple web scraper wrapper for fetching and extracting links.
+
+    This class provides minimal utilities used by the project to fetch
+    pre-rendered page content (via `get_data`) and to extract http(s)
+    links from arbitrary text (`get_links`).
+    """
+
+    def __init__(self, url):
+        """Create a `WebScrapper` for a specific URL.
+
+        Args:
+            url (str): The target URL or identifier used by `get_data`.
+        """
+        self.url = url
+
+    def get_links(self, content):
+        """Extract http(s) links from a block of text.
+
+        Filters out common image file extensions to avoid binary assets.
+
+        Args:
+            content (str): Text to search for links.
+
+        Returns:
+            List[str]: List of cleaned HTTP/HTTPS links found in `content`.
+        """
+        if content:
+            links  = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', content)
+            clean_links = [L for L in links if not L.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
+            return clean_links
+        return []
+
+    def get_data(self):
+        """Fetch page content using a pre-rendering proxy service.
+
+        Returns the raw HTML/text body returned by the proxy. The
+        implementation uses a fixed Authorization header as in the
+        original project (consider moving secrets to configuration).
+
+        Returns:
+            str: Response text from the GET request.
+        """
+        headers = {
+            "Authorization": "Bearer key_deleted"
+            }
+        response = requests.get(f'https://r.jina.ai/{self.url}', headers=headers)
+        return response.text
