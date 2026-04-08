@@ -1,7 +1,7 @@
-from logging import config
+
 
 from chromadb.utils.embedding_functions.ollama_embedding_function import OllamaEmbeddingFunction
-import dotenv
+from dotenv import load_dotenv
 import os 
 from google import genai
 from google import genai
@@ -27,36 +27,37 @@ class ModelHandler:
         url="http://localhost:11434/api/embeddings",
         model_name="mxbai-embed-large"
         )
-        dotenv.load_dotenv()
+        load_dotenv()
         gemini_api_key = os.getenv("GEMINI_API_KEY")
 
         if not gemini_api_key:
             raise ValueError("GEMINI_API_KEY not found in environment variables.")
         
-        self.client = genai.Client(api_key="YOUR_API_KEY")
-    def ask_for_code(self, query: str) -> str:
+        self.client = genai.Client(api_key=gemini_api_key)
+    def ask_for_code(self, query: str,config:dict) -> str:
         """Generate a response from the model based on the provided query.
         This method is a placeholder for the actual implementation of querying the model
         and generating a response based on the input query. The implementation would typically involve processing the query, generating a response using the model, and returning the response to the user.
 
         Args:
             query (str): The input query for which a response is to be generated.
+            config (dict): Configuration parameters for the system instruction.
         Returns:
             str: The generated response from the model based on the input query.
         """
-        system_prompt = self._system_instruction()
-        generate_config = types.GenerateConfig(
-            system=system_prompt,
+        system_prompt = self._system_instruction(config)
+        generate_config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
             temperature=0.3,
         )
 
-        response = self.client.generate_content(
-            model="gemini-3-pro",
-            input=query,
+        response = self.client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=query,
             config=generate_config
         )
         return response.text
-    def _system_instruction(self):
+    def _system_instruction(self,config:dict = None) -> str:
         """Generate a system instruction for the model.
 
         This method is a placeholder for the actual implementation of generating
@@ -91,3 +92,22 @@ class ModelHandler:
         """
         # Placeholder for actual implementation
         return instruction
+
+config_for_rag_coder = {
+    "persona": "Senior Staff Software Engineer and Technical Architect",
+    "domain": "Software development, API integration, and clean code architecture",
+    "goal": "Generate production-ready, error-free code strictly based on the provided documentation chunks. Do not hallucinate methods not present in the context.",
+    "audience": "Other software developers",
+    "tone": "Direct, technical, and precise. No fluff or unnecessary pleasantries.",
+    "style": "Code-first. Provide brief, architectural explanations followed by heavily commented, runnable code.",
+    "format": "Markdown with syntax-highlighted code blocks. Include step-by-step usage instructions if necessary.",
+    "length": "Concise explanations, but complete and un-truncated code blocks."
+}
+
+
+if __name__ == "__main__":    
+    model_handler = ModelHandler()
+    query = "What is the best way to implement a binary search tree in Python?"
+    response = model_handler.ask_for_code(query, config_for_rag_coder)
+    print("Model Response:")
+    print(response)

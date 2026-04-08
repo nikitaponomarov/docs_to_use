@@ -87,16 +87,19 @@ class Orchestrator:
                 db.close()
             except Exception:
                 logger.exception("Failed to close database connection")
-
+        return contents
+    def chunking(self, contents,query):
         rag_handler = Rag_Handler()
         for content in contents:
             try:
                 chunks = rag_handler.chunking(content[0], 1000, 200)
                 rag_handler.add_document(chunks)
+                results = rag_handler.query(query)
+                logger.info("Query results for '%s': %s", query, results)
             except Exception:
                 logger.exception("Failed to chunk/add document for content id %s", getattr(content, 'id', 'unknown'))
         logger.info("RAG preparation completed.")
-
+        return results
     def run(self):
         """Placeholder run loop for orchestrator.
 
@@ -105,6 +108,8 @@ class Orchestrator:
         """
         try:
             self.scrape_and_store("https://docs.trychroma.com/docs/overview/introduction", "introduction")
+            contents = self.prepare_rag()
+            self.chunking(contents)
         except Exception:
             logger.exception("Orchestrator run failed")
         return

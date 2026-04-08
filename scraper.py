@@ -30,7 +30,7 @@ class WebScrapper:
             List[str]: List of cleaned HTTP/HTTPS links found in `content`.
         """
         if content:
-            links  = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', content)
+            links  = re.findall(r'https?://[^\s{\[()\]}]+', content)
             clean_links = [L for L in links if not L.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
             return clean_links
         return []
