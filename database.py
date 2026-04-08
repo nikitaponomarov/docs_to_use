@@ -32,14 +32,14 @@ class SQDB:
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS Main_Pages
                             (url TEXT NOT NULL,
                             name TEXT,
-                            content TEXT
+                            content TEXT,
                             constraint main_pk primary key (url, name)
                             )''')
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS Additional_Pages
                             (url_a TEXT constraint urla_pk primary key NOT NULL,
-                            url_fk TEXT,
+                            url_mn TEXT,
                             content TEXT,
-                            foreign key (url_fk) references Main_Pages(url))''')
+                            foreign key (url_mn) references Main_Pages(url))''')
         self.conn.commit()
 
     def insert_main_page(self, url, name, content):
@@ -53,15 +53,15 @@ class SQDB:
         self.cursor.execute("INSERT INTO Main_Pages (url, name, content) VALUES (?, ?, ?)", (url, name, content))
         self.conn.commit()
 
-    def insert_additional_page(self, url_a, url_fk, content):
+    def insert_additional_page(self, url_a, url_mn, content):
         """Insert an additional/auxiliary page linked to a main page.
 
         Args:
             url_a (str): Unique URL of the additional page.
-            url_fk (str): Foreign-key URL referencing the main page.
+            url_mn (str): Foreign-key URL referencing the main page.
             content (str): The textual content of the additional page.
         """
-        self.cursor.execute("INSERT INTO Additional_Pages (url_a, url_fk, content) VALUES (?, ?, ?)", (url_a, url_fk, content))
+        self.cursor.execute("INSERT INTO Additional_Pages (url_a, url_mn, content) VALUES (?, ?, ?)", (url_a, url_mn, content))
         self.conn.commit()
 
     def close(self):
@@ -80,7 +80,7 @@ class SQDB:
         """
         self.cursor.execute("SELECT content FROM Main_Pages where name = ?", (name,))
         main_contents = self.cursor.fetchall()
-        self.cursor.execute("SELECT content FROM Additional_Pages")
+        self.cursor.execute("SELECT content FROM Additional_Pages where name = ?", (name,))
         additional_contents = self.cursor.fetchall()
         return main_contents + additional_contents
     
@@ -93,7 +93,7 @@ class SQDB:
         Returns:
             bool: True if the URL exists in `Main_Pages`.
         """
-        self.cursor.execute("SELECT 1 FROM Main_Pages WHERE name = ?", (url,))
+        self.cursor.execute("SELECT 1 FROM Main_Pages WHERE url = ?", (url,))
         return self.cursor.fetchone() is not None
     def if_exists_additional(self, url_a):
         """Check whether a URL already exists in the Additional_Pages table.

@@ -33,23 +33,41 @@ class Orchestrator:
             name (str): The name of the main page.
         """
         scrapper = WebScrapper(url)
-        content = scrapper.get_data()
         db = SQDB("web_content.db")
-        db.create_table()
-        if not db.if_exists_main(url):
+        try:
+            db.create_table()
+            try:
+                content = scrapper.get_data()
+            except Exception:
+                logger.exception("Failed to fetch main URL %s", url)
+                return
 
-            db.insert_main_page(url, name,content)
-            print(f"Content from {url} stored in database.")
-            if not db.if_exists_additional:
+            start_url = scrapper.get_start_url()
+            if not db.if_exists_main(start_url):
+                try:
+                    db.insert_main_page(start_url, name, content)
+                    logger.info("Content from %s stored in database.", url)
+                except Exception:
+                    logger.exception("Failed to insert main page for %s", start_url)
+
                 links = scrapper.get_links(content)
                 for link in links:
-                    if not db.if_exists_main(link):
-                        additional_content = WebScrapper(link).get_data()
-                        db.insert_additional_page(link, url, additional_content)
-                        print(f"Additional content from {link} stored in database.")
-        else:
-            print(f"URL {url} already exists in the database. Skipping storage.")
-        db.close()
+                    try:
+                        if scrapper.is_url_doc(link) and not db.if_exists_additional(link):
+                            additional_content = WebScrapper(link).get_data()
+                            db.insert_additional_page(link, start_url, additional_content)
+                            logger.info("Additional content from %s stored in database.", link)
+                    except Exception:
+                        logger.exception("Failed processing additional link %s", link)
+            else:
+                logger.info("URL %s already exists in the database. Skipping storage.", url)
+        except Exception:
+            logger.exception("Unexpected error during scrape_and_store for %s", url)
+        finally:
+            try:
+                db.close()
+            except Exception:
+                logger.exception("Failed to close database connection")
 
     def prepare_rag(self):
         """Load stored content, chunk it, and add chunks to the RAG collection.
@@ -59,13 +77,25 @@ class Orchestrator:
         resulting chunks to the collection via `Rag_Handler.add_document`.
         """
         db = SQDB("web_content.db")
-        contents = db.get_for_chunks()
-        db.close()
+        try:
+            contents = db.get_for_chunks()
+        except Exception:
+            logger.exception("Failed to read contents for chunking")
+            contents = []
+        finally:
+            try:
+                db.close()
+            except Exception:
+                logger.exception("Failed to close database connection")
+
         rag_handler = Rag_Handler()
         for content in contents:
-            chunks = rag_handler.chunking(content[0], 1000, 200)
-            rag_handler.add_document(chunks)
-        print("RAG preparation completed.")
+            try:
+                chunks = rag_handler.chunking(content[0], 1000, 200)
+                rag_handler.add_document(chunks)
+            except Exception:
+                logger.exception("Failed to chunk/add document for content id %s", getattr(content, 'id', 'unknown'))
+        logger.info("RAG preparation completed.")
 
     def run(self):
         """Placeholder run loop for orchestrator.
@@ -73,7 +103,11 @@ class Orchestrator:
         Implement application-specific orchestration or CLI entrypoints
         here in future iterations.
         """
-        self.scrape_and_store("https://docs.trychroma.com/docs/overview/introduction")
+        try:
+            self.scrape_and_store("https://docs.trychroma.com/docs/overview/introduction", "introduction")
+        except Exception:
+            logger.exception("Orchestrator run failed")
+        return
 
 if __name__ == "__main__":
     orchestrator = Orchestrator()

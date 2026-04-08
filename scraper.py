@@ -34,6 +34,29 @@ class WebScrapper:
             clean_links = [L for L in links if not L.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
             return clean_links
         return []
+    def get_start_url(self):
+        """Extract the base URL from the provided URL.
+
+        This method assumes the input URL is in a format like
+        'https://r.jina.ai/some/path' and extracts 'https://r.jina.ai'.
+
+        Returns:
+            str: The base URL extracted from `self.url`.
+        """
+        match = re.match(r'(https?://[^/]+)', self.url)
+        return match.group(1) if match else None
+    
+    def is_url_doc(self, url):
+        """Determine if the URL is likely a documentation page.
+
+        This is a simple heuristic check that looks for common doc-related
+        keywords in the URL path.
+
+        Returns:
+            bool: True if the URL appears to be a documentation page, False otherwise.
+        """
+        doc_keywords = ['docs', 'documentation', 'guide', 'manual', 'reference']
+        return any(keyword in url.lower() for keyword in doc_keywords)
 
     def get_data(self):
         """Fetch page content using a pre-rendering proxy service.

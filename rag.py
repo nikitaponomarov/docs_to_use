@@ -1,12 +1,6 @@
 import chromadb
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from chromadb.utils.embedding_functions.ollama_embedding_function import OllamaEmbeddingFunction
 
-
-ollama_ef = OllamaEmbeddingFunction(
-    url="http://localhost:11434/api/embeddings",
-    model_name="mxbai-embed-large"
-)
 
 class Rag_Handler:
     """Handler for preparing and querying documents in a ChromaDB collection.
@@ -17,7 +11,7 @@ class Rag_Handler:
     local text files.
     """
 
-    def __init__(self):
+    def __init__(self,ollama_ef):
         """Instantiate the Chroma client and obtain/create the target collection.
 
         The collection is created (or retrieved if existing) with the
