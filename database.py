@@ -80,7 +80,7 @@ class SQDB:
         """
         self.cursor.execute("SELECT content FROM Main_Pages where name = ?", (name,))
         main_contents = self.cursor.fetchall()
-        self.cursor.execute("SELECT content FROM Additional_Pages where name = ?", (name,))
+        self.cursor.execute("SELECT content FROM Additional_Pages where url_mn = (SELECT url FROM Main_Pages where name = ?)", (name,))
         additional_contents = self.cursor.fetchall()
         return main_contents + additional_contents
     

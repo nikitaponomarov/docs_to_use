@@ -45,43 +45,22 @@ class Rag_Handler:
         """
         results = self.collection.query(
             query_texts=[query],
-            n_results=1
+            n_results=20
         )
         return results['documents'][0]
 
-    def chunking(self, file_path, ch_size, ch_overlap):
+    def chunking(self, document, ch_size, ch_overlap):
         """Read a local file and split it into overlapping chunks.
 
         Args:
-            file_path (str): Path to a local text file to chunk.
+            document (str): The text document to chunk.
             ch_size (int): Target chunk size in characters.
             ch_overlap (int): Overlap between consecutive chunks.
 
         Returns:
             List[str]: List of text chunks.
         """
-        with open(file_path, "r", encoding="utf-8") as f:
-            document = f.read()
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=ch_size, chunk_overlap=ch_overlap)
         chunks = text_splitter.split_text(document)
         return chunks
 
-def main():
-    rag_handler = Rag_Handler()
-    
-    # Assuming you have a file named "first.txt"
-    print("Chunking document...")
-    chunks = rag_handler.chunking("first.txt", 1000, 200)
-    
-    print(f"Adding {len(chunks)} chunks to ChromaDB using Ollama (This might take a few seconds on CPU)...")
-    rag_handler.add_document(chunks)
-    
-    print("Querying the database...")
-    query = "How to set cloudclient?"
-    results = rag_handler.query(query)
-    
-    print("\n--- Top Result ---")
-    print(results)
-
-if __name__ == "__main__":
-    main()

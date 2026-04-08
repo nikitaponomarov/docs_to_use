@@ -23,10 +23,6 @@ class ModelHandler:
         The collection is created (or retrieved if existing) with the
         `ollama_ef` embedding function configured at module level.
         """
-        self.ollama_ef = OllamaEmbeddingFunction(
-        url="http://localhost:11434/api/embeddings",
-        model_name="mxbai-embed-large"
-        )
         load_dotenv()
         gemini_api_key = os.getenv("GEMINI_API_KEY")
 
@@ -34,6 +30,21 @@ class ModelHandler:
             raise ValueError("GEMINI_API_KEY not found in environment variables.")
         
         self.client = genai.Client(api_key=gemini_api_key)
+    
+    def get_ollama_ef(self):
+        """Get the Ollama embedding function instance.
+
+        This method initializes and returns an instance of `OllamaEmbeddingFunction`
+        configured to use the ChromaDB client for generating embeddings.
+
+        Returns:
+            OllamaEmbeddingFunction: An instance of the Ollama embedding function.
+        """
+        self.ollama_ef = OllamaEmbeddingFunction(
+        url="http://localhost:11434/api/embeddings",
+        model_name="mxbai-embed-large"
+        )
+        return self.ollama_ef
     def ask_for_code(self, query: str,config:dict) -> str:
         """Generate a response from the model based on the provided query.
         This method is a placeholder for the actual implementation of querying the model
