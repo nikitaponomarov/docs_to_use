@@ -7,6 +7,12 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',filename='my_app.log',filemode='a',)
 logger = logging.getLogger(__name__)
 
+# Maps context_name (from frontend) → ChromaDB collection name
+COLLECTION_MAP = {
+    "chroma_docs":     "chroma_docs_collection",
+    "gemini_api_docs": "local_docs_collection",
+}
+
 class Orchestrator:
     """High-level orchestrator that ties scraping, storage, and RAG prep.
 
@@ -23,11 +29,16 @@ class Orchestrator:
         """
         self.query = query
         self.name = name
-        
+
+        collection_name = COLLECTION_MAP.get(name, f"{name}_collection")
+
         self.model_handler = ModelHandler()
-        self.rag_handler = Rag_Handler(ollama_ef=self.model_handler.get_ollama_ef())
+        self.rag_handler = Rag_Handler(
+            ollama_ef=self.model_handler.get_ollama_ef(),
+            collection_name=collection_name,
+        )
         self.db = SQDB("web_content.db")
-        self.scrapper = WebScrapper("https://ai.google.dev/gemini-api/docs/libraries")
+        self.scrapper = WebScrapper("https://docs.trychroma.com/docs/overview/introduction")
 
 
     def scrape_and_store(self, url, name):
@@ -118,7 +129,7 @@ class Orchestrator:
         """
         try:
             response = "Error: Orchestrator failed to complete the run."
-            #self.scrape_and_store("https://ai.google.dev/gemini-api/docs/libraries", self.name)
+            self.scrape_and_store("https://docs.trychroma.com/docs/overview/introduction", self.name)
             contents = self.prepare_rag()
             results  = self.chunking(contents)
             response = self.model_handler.ask_for_code(f'query: {self.query}\n\nfindings in the library:: {results}', config_for_rag_coder)
@@ -128,5 +139,5 @@ class Orchestrator:
         return response
 
 if __name__ == "__main__":
-    orchestrator = Orchestrator("How to use gemini api in python?", "gemini_api_docs")
+    orchestrator = Orchestrator("How to use gemini api in python?", "chroma_docs")
     orchestrator.run()

@@ -26,7 +26,7 @@ app.add_middleware(
 # 3. Define what data the frontend will send
 class UserQuery(BaseModel):
     query: str
-    context_name: str = "gemini_api_docs"  # Default context name, can be overridden by frontend
+    context_name: str  # Set by the frontend based on user's library selection
 
 # 4. Create the Endpoint
 @app.post("/api/ask")

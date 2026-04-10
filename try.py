@@ -6,11 +6,6 @@ db = sqlite3.connect(database_name)
 cursor = db.cursor()
 
 
-cursor.execute('''DELETE FROM Additional_Pages
-    WHERE rowid NOT IN (
-    SELECT MIN(rowid)
-    FROM Additional_Pages
-    GROUP BY content
-);''')
+cursor.execute('''DELETE FROM Main_Pages where url = "https://docs.trychroma.com"''')
 db.commit()
 db.close()

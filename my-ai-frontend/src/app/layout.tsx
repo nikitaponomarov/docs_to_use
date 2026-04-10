@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ChromaDB RAG AI",
-  description: "Chat interface for interacting with our FastAPI RAG Backend",
+  title: "Docs RAG — Multi-Library AI Assistant",
+  description: "Ask questions across multiple documentation libraries powered by a FastAPI RAG backend.",
 };
 
 export default function RootLayout({

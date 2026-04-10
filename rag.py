@@ -11,7 +11,7 @@ class Rag_Handler:
     local text files.
     """
 
-    def __init__(self,ollama_ef):
+    def __init__(self, ollama_ef, collection_name="chroma_docs_collection"):
         """Instantiate the Chroma client and obtain/create the target collection.
 
         The collection is created (or retrieved if existing) with the
@@ -19,7 +19,7 @@ class Rag_Handler:
         """
         self.chroma_client = chromadb.PersistentClient(path="./chroma_db")
         self.collection = self.chroma_client.get_or_create_collection(
-            name="local_docs_collection",
+            name=collection_name,
             embedding_function=ollama_ef
         )
 
