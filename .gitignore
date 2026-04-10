@@ -3,3 +3,5 @@
 __pycache__/
 my_app.log
 web_content.db
+my-ai-frontend/.enc.locals
+chroma_db/

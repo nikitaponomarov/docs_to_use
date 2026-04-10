@@ -60,6 +60,7 @@ class ModelHandler:
         generate_config = types.GenerateContentConfig(
             system_instruction=system_prompt,
             temperature=0.3,
+            max_output_tokens=8192
         )
 
         response = self.client.models.generate_content(

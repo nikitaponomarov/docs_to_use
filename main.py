@@ -27,7 +27,7 @@ class Orchestrator:
         self.model_handler = ModelHandler()
         self.rag_handler = Rag_Handler(ollama_ef=self.model_handler.get_ollama_ef())
         self.db = SQDB("web_content.db")
-        self.scrapper = WebScrapper("https://docs.trychroma.com/docs/overview/introduction")
+        self.scrapper = WebScrapper("https://ai.google.dev/gemini-api/docs/libraries")
 
 
     def scrape_and_store(self, url, name):
@@ -86,22 +86,28 @@ class Orchestrator:
             contents = []
         return contents
     def chunking(self, contents):
-        results = [] 
-        
-        for content in contents:
-            try:
-                chunks = self.rag_handler.chunking(content[0], 1000, 200)
-                self.rag_handler.add_document(chunks)
-            except Exception:
-                logger.exception("Failed to chunk/add document")
-        
+        results = []
+
+        collection_size = self.rag_handler.collection.count()
+
+        if collection_size == 0:
+            logger.info("Collection is empty — embedding %d document(s).", len(contents))
+            for content in contents:
+                try:
+                    chunks = self.rag_handler.chunking(content[0], 1000, 400)
+                    self.rag_handler.add_document(chunks)
+                except Exception:
+                    logger.exception("Failed to chunk/add document")
+        else:
+            logger.info("Collection already has %d chunks — skipping embedding.", collection_size)
+
         try:
-            if contents: 
+            if self.rag_handler.collection.count() > 0:
                 results = self.rag_handler.query(self.query)
                 logger.info("Query results for '%s': %s", self.query, results)
         except Exception:
             logger.exception("Failed to query RAG database.")
-            
+
         logger.info("RAG preparation completed.")
         return results
     def run(self):
@@ -112,16 +118,15 @@ class Orchestrator:
         """
         try:
             response = "Error: Orchestrator failed to complete the run."
-            #self.scrape_and_store("https://docs.trychroma.com/docs/overview/introduction", "introduction")
+            #self.scrape_and_store("https://ai.google.dev/gemini-api/docs/libraries", self.name)
             contents = self.prepare_rag()
             results  = self.chunking(contents)
             response = self.model_handler.ask_for_code(f'query: {self.query}\n\nfindings in the library:: {results}', config_for_rag_coder)
             self.db.close()
         except Exception:
             logger.exception("Orchestrator run failed")
-        print(response)
         return response
 
 if __name__ == "__main__":
-    orchestrator = Orchestrator("How to use ChromaDB with Python?", "introduction")
+    orchestrator = Orchestrator("How to use gemini api in python?", "gemini_api_docs")
     orchestrator.run()
