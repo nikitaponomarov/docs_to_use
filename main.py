@@ -21,66 +21,139 @@ class Orchestrator:
     retrieval-augmented generation (RAG) using `Rag_Handler`.
     """
     
-    def __init__(self,query,name):
+    def __init__(self):
         """Create an Orchestrator instance.
 
         This initializer currently performs no special setup, but it exists
         to allow future extension (dependency injection, configuration, etc.).
         """
-        self.query = query
-        self.name = name
-
-        collection_name = COLLECTION_MAP.get(name, f"{name}_collection")
-
         self.model_handler = ModelHandler()
-        self.rag_handler = Rag_Handler(
-            ollama_ef=self.model_handler.get_ollama_ef(),
-            collection_name=collection_name,
-        )
+        self.ollama_ef = self.model_handler.get_ollama_ef()
+
         self.db = SQDB("web_content.db")
-        self.scrapper = WebScrapper("https://docs.trychroma.com/docs/overview/introduction")
+        self.db.create_table()
 
 
-    def scrape_and_store(self, url, name):
-        """Scrape a URL and store its content in the SQLite database.
+    def has_context(self,name):
+        """Check if the database already has content for the given context name.
 
-        If the URL already exists in the database, it will not be added again.
+        This method queries the `SQDB` database to determine if there is
+        existing content associated with the provided context name. It returns
+        a boolean indicating whether relevant content is present.
 
         Args:
-            url (str): The target URL to scrape (expected in the format used
-                       by `WebScrapper.get_data`).
-            name (str): The name of the main page.
+            name (str): The context name to check for in the database.
+        Returns:
+            bool: True if content exists for the context name, False otherwise.
         """
-        try:
-            self.db.create_table()
-            try:
-                content = self.scrapper.get_data()
-            except Exception:
-                logger.exception("Failed to fetch main URL %s", url)
-                return
+        return self.db.if_exists_main(name)
+    
+    def scrape_and_learn(self, url: str, name: str):
+        """The main method to orchestrate scraping, storing, and preparing RAG."""
+        logger.info(f"Starting to learn library {name} from URL {url}")
+        
+        scrapper = WebScrapper(url)
+        
 
-            start_url = self.scrapper.get_start_url()
-            if not self.db.if_exists_main(start_url):
-                try:
-                    self.db.insert_main_page(start_url, name, content)
-                    logger.info("Content from %s stored in database.", url)
-                except Exception:
-                    logger.exception("Failed to insert main page for %s", start_url)
+        main_content, start_url = self._process_main_page(scrapper, name, url)
+        
 
-                links = self.scrapper.get_links(content)
-                for link in links:
-                    try:
-                        if self.scrapper.is_url_doc(link) and not self.db.if_exists_additional(link):
-                            additional_content = WebScrapper(link).get_data()
-                            self.db.insert_additional_page(link, start_url, additional_content)
-                            logger.info("Additional content from %s stored in database.", link)
-                    except Exception:
-                        logger.exception("Failed processing additional link %s", link)
+        if main_content:
+            links = scrapper.get_links(main_content)
+            self._process_additional_pages(links, start_url)
+        
+        self._embed_into_chroma(name)
+        logger.info(f"Learning for {name} completed successfully!")
+
+    def _process_main_page(self,scrapper: WebScrapper, name,original_url: str) -> tuple[str | None, str]:
+        """Process and store the main page content in the database.
+
+        This method takes the URL, name, and content of a main page, and
+        inserts it into the `Main_Pages` table of the `SQDB` database.
+        """
+        start_url = scrapper.get_start_url()
+        if start_url and scrapper.is_url_doc(start_url):
+            if self.db.if_exists_main(original_url):
+                logger.info("Main page already exists in database: %s", original_url)
+                return None, start_url
             else:
-                logger.info("URL %s already exists in the database. Skipping storage.", url)
-        except Exception:
-            logger.exception("Unexpected error during scrape_and_store for %s", url)
+                try:
+                    content = scrapper.get_data()
+                    self.db.insert_main_page(original_url, name, content)
+                    logger.info("Inserted main page into database: %s", original_url)
+                    return content, start_url
+                except Exception:
+                    logger.exception("Failed to process main page: %s", original_url)
+        else:
+            logger.info("URL does not appear to be a documentation page, skipping: %s", original_url)
 
+    def _process_aditioonal_page(self, scrapper: WebScrapper, links:list[str], start_url:str):
+        for link in links:
+            if link.startswith(start_url):
+                if self.db.if_exists_additional(link):
+                    logger.info("Additional page already exists in database: %s", link)
+                    continue
+                else:
+                    try:
+                        content = scrapper.get_data(link)
+                        self.db.insert_additional_page(link, start_url, content)
+                        logger.info("Inserted additional page into database: %s", link)
+                    except Exception:
+                        logger.exception("Failed to process additional page: %s", link)
+    def _embed_into_chroma(self, name):
+        """Initialize the Chroma collection for RAG embedding.
+
+        This method creates a persistent Chroma client and retrieves or creates
+        a collection with the specified name. The collection is configured to
+        use the `ollama_ef` embedding function provided by the model handler.
+
+        Args:
+            collection_name (str): The name of the Chroma collection to create or retrieve.
+        """
+        safe_name = name.lower().replace(" ", "_").replace("-", "_")
+        collection_name = f"{safe_name}_collection"
+        self.db.insert_collection(name, collection_name)
+        """Initialize the Chroma collection for RAG embedding."""
+        rag_handler = Rag_Handler(ollama_ef=self.ollama_ef, collection_name=collection_name)
+        try:
+            contents = self.db.get_for_chunks(name)
+        except Exception:
+            logger.exception("Failed to read contents for chunking")
+            return
+
+        collection_size = rag_handler.collection.count()
+        if collection_size == 0:
+            logger.info("Collection is empty — embedding %d document(s).", len(contents))
+            for content in contents:
+                try:
+                    chunks = rag_handler.chunking(content[0], 1000, 400)
+                    rag_handler.add_document(chunks)
+                except Exception:
+                    logger.exception("Failed to chunk/add document")
+        else:
+            logger.info("Collection already has %d chunks — skipping embedding.", collection_size)
+    def ask(self, query: str, name: str) -> str:
+            
+        collection_name = self.db.get_collection_name(name)
+        
+        if not collection_name:
+            return f"Error: I haven't learned about the library '{name}'."
+
+        rag_handler = Rag_Handler(ollama_ef=self.ollama_ef, collection_name=collection_name)
+        results = []
+        try:
+            if rag_handler.collection.count() > 0:
+                results = rag_handler.query(query)
+                logger.info("Query results for '%s' found.", query)
+            else:
+                logger.warning("ChromaDB is empty for %s", name)
+        except Exception:
+            logger.exception("Failed to query RAG database.")
+
+        prompt = f'query: {query}\n\nfindings in the library:: {results}'
+        response = self.model_handler.ask_for_code(prompt, config_for_rag_coder)
+        
+        return response
 
     def prepare_rag(self):
         """Load stored content, chunk it, and add chunks to the RAG collection.
@@ -121,23 +194,23 @@ class Orchestrator:
 
         logger.info("RAG preparation completed.")
         return results
-    def run(self):
-        """Placeholder run loop for orchestrator.
-
-        Implement application-specific orchestration or CLI entrypoints
-        here in future iterations.
-        """
-        try:
-            response = "Error: Orchestrator failed to complete the run."
-            self.scrape_and_store("https://docs.trychroma.com/docs/overview/introduction", self.name)
-            contents = self.prepare_rag()
-            results  = self.chunking(contents)
-            response = self.model_handler.ask_for_code(f'query: {self.query}\n\nfindings in the library:: {results}', config_for_rag_coder)
-            self.db.close()
-        except Exception:
-            logger.exception("Orchestrator run failed")
-        return response
 
 if __name__ == "__main__":
-    orchestrator = Orchestrator("How to use gemini api in python?", "chroma_docs")
-    orchestrator.run()
+    if __name__ == "__main__":
+        orchestrator = Orchestrator()
+        
+        test_lib_name = "chroma_docs"
+        test_url = "https://docs.trychroma.com"
+        test_query = "How to use chromadb in python?"
+
+        #Check if we already have content for this library`
+        if not orchestrator.has_context(test_lib_name):
+            print(f"Starting to learn {test_lib_name}...")
+            orchestrator.scrape_and_learn(test_url, test_lib_name)
+        else:
+            print(f"Library {test_lib_name} already exists in the database.")
+        # 
+        print(f"Asking question: {test_query}")
+        answer = orchestrator.ask(test_query, test_lib_name)
+        print("\n--- GEMINI RESPONSE ---")
+        print(answer)

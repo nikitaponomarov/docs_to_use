@@ -40,6 +40,9 @@ class SQDB:
                             url_mn TEXT,
                             content TEXT,
                             foreign key (url_mn) references Main_Pages(url))''')
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS COLLECTIONS
+                            (name TEXT PRIMARY KEY NOT NULL,
+                            collection_name TEXT NOT NULL)''')
         self.conn.commit()
 
     def insert_main_page(self, url, name, content):
@@ -63,6 +66,21 @@ class SQDB:
         """
         self.cursor.execute("INSERT INTO Additional_Pages (url_a, url_mn, content) VALUES (?, ?, ?)", (url_a, url_mn, content))
         self.conn.commit()
+    
+    def insert_collection(self, name, collection_name):
+        """Insert a record linking a context name to a Chroma collection.
+
+        Args:
+            name (str): The context name associated with the collection.
+            collection_name (str): The name of the Chroma collection.
+        """
+        try:
+            self.cursor.execute("INSERT OR IGNORE INTO COLLECTIONS (name, collection_name) VALUES (?, ?)", (name, collection_name))
+            self.conn.commit()
+        except Exception:
+            # If insertion fails for any reason, ignore to keep operation idempotent
+            # Higher-level code can still retrieve existing mapping via `get_collection_name`.
+            pass
 
     def close(self):
         """Close the underlying SQLite connection.
@@ -83,6 +101,19 @@ class SQDB:
         self.cursor.execute("SELECT content FROM Additional_Pages where url_mn = (SELECT url FROM Main_Pages where name = ?)", (name,))
         additional_contents = self.cursor.fetchall()
         return main_contents + additional_contents
+    
+    def get_collection_name(self, name):
+        """Retrieve the Chroma collection name associated with a context name.
+
+        Args:
+            name (str): The context name to look up.
+
+        Returns:
+            str: The associated Chroma collection name, or None if not found.
+        """
+        self.cursor.execute("SELECT collection_name FROM COLLECTIONS where name = ?", (name,))
+        result = self.cursor.fetchone()
+        return result[0] if result else None
     
     def if_exists_main(self, url):
         """Check whether a URL already exists in the Main_Pages table.

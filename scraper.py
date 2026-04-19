@@ -1,5 +1,9 @@
 import requests
 import re
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 class WebScrapper:
     """Simple web scraper wrapper for fetching and extracting links.
@@ -54,7 +58,7 @@ class WebScrapper:
         Returns:
             bool: True if the URL appears to be a documentation page, False otherwise.
         """
-        doc_keywords = ['docs', 'documentation', 'guide', 'manual', 'reference']
+        doc_keywords = ['docs', 'documentation', 'guide', 'manual', 'reference', 'api', 'developer', 'learn', 'getting-started', 'tutorial', 'examples', 'resources', 'support', 'help', 'faq']
         return any(keyword in url.lower() for keyword in doc_keywords)
 
     def get_data(self):
@@ -68,7 +72,7 @@ class WebScrapper:
             str: Response text from the GET request.
         """
         headers = {
-            "Authorization": "Bearer key_deleted"
+            "Authorization": f"Bearer {os.getenv('JINA_API_KEY')}"
             }
         response = requests.get(f'https://r.jina.ai/{self.url}', headers=headers)
         return response.text
