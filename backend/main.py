@@ -1,7 +1,7 @@
-from scraper import WebScrapper
-from rag import Rag_Handler, get_embedding_function
-from model import ModelHandler, config_for_rag_coder, config_for_deprecated_checker
-from database import SQDB
+from backend.scraper import WebScrapper
+from backend.rag import Rag_Handler, get_embedding_function
+from backend.model import ModelHandler, config_for_rag_coder, config_for_deprecated_checker
+from backend.database import SQDB
 import logging
 
 logging.basicConfig(
