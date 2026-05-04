@@ -41,6 +41,14 @@ class UserQuery(BaseModel):
     embed: EmbedConfig = EmbedConfig()
 
 
+class UserCodeQuery(BaseModel):
+    code: str
+    context_name: str
+    rewrite: bool = True            # True → return rewritten code; False → only list deprecated usages
+    ai: AIConfig = AIConfig()
+    embed: EmbedConfig = EmbedConfig()
+
+
 @app.post("/api/ask")
 @limiter.limit("10/minute")
 async def ask_ai(request: Request, user_query: UserQuery, background_tasks: BackgroundTasks):
@@ -62,6 +70,28 @@ async def ask_ai(request: Request, user_query: UserQuery, background_tasks: Back
         response = orchestrator.ask(
             user_query.query,
             user_query.context_name,
+            ai_provider=user_query.ai.provider,
+            ai_model=user_query.ai.model,
+            ai_base_url=user_query.ai.base_url,
+        )
+        return {"status": "success", "answer": response}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal AI Error")
+
+
+@app.post("/api/deprecated")
+@limiter.limit("10/minute")
+async def check_deprecated(request: Request, user_query: UserCodeQuery):
+    if not orchestrator.has_context(user_query.context_name):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Context '{user_query.context_name}' not found. Use /api/ask with a url first to learn the library.",
+        )
+    try:
+        response = orchestrator.check_deprecated(
+            user_query.code,
+            user_query.context_name,
+            rewrite=user_query.rewrite,
             ai_provider=user_query.ai.provider,
             ai_model=user_query.ai.model,
             ai_base_url=user_query.ai.base_url,

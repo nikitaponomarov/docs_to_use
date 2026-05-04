@@ -1,6 +1,6 @@
 from scraper import WebScrapper
 from rag import Rag_Handler, get_embedding_function
-from model import ModelHandler, config_for_rag_coder
+from model import ModelHandler, config_for_rag_coder, config_for_deprecated_checker
 from database import SQDB
 import logging
 
@@ -20,12 +20,24 @@ DEFAULT_AI_BASE_URL = "http://localhost:11434"
 
 
 class Orchestrator:
+    """Central coordinator that connects scraping, storage, RAG, and AI inference.
+
+    The typical lifecycle for a new library:
+      1. scrape_and_learn() — fetches docs, stores raw text in SQLite, embeds into ChromaDB
+      2. ask() / check_deprecated() — retrieves relevant chunks and sends them to the AI
+
+    SQLite acts as the persistent source of truth for raw content;
+    ChromaDB holds the vector index derived from it.
+    """
+
     def __init__(self):
         self.model_handler = ModelHandler()
         self.db = SQDB("web_content.db")
         self.db.create_table()
 
     def has_context(self, name: str) -> bool:
+        # Readiness is tracked in the COLLECTIONS table, not ChromaDB,
+        # so the check survives a ChromaDB wipe/rebuild.
         return self.db.if_exists_collection(name)
 
     def scrape_and_learn(
@@ -38,8 +50,10 @@ class Orchestrator:
         logger.info("Starting to learn library %s from URL %s", name, url)
         scrapper = WebScrapper(url)
 
+        # Phase 1: fetch the landing/index page and extract sub-page links from it.
         main_content, start_url = self._process_main_page(scrapper, name, url)
 
+        # Phase 2: crawl sub-pages found on the index, staying within the same domain.
         if main_content:
             links = scrapper.get_links(main_content)
             self._process_additional_page(scrapper, links, start_url)
@@ -67,6 +81,7 @@ class Orchestrator:
 
     def _process_additional_page(self, scrapper: WebScrapper, links: list[str], start_url: str):
         for link in links:
+            # Only follow links that stay within the same docs domain.
             if link.startswith(start_url):
                 if self.db.if_exists_additional(link):
                     logger.info("Additional page already exists in database: %s", link)
@@ -79,6 +94,7 @@ class Orchestrator:
                     logger.exception("Failed to process additional page: %s", link)
 
     def _embed_into_chroma(self, name: str, embed_model: str, embed_url: str):
+        # ChromaDB collection names must be lowercase with underscores only.
         safe_name = name.lower().replace(" ", "_").replace("-", "_")
         collection_name = f"{safe_name}_collection"
         self.db.insert_collection(name, collection_name, embed_model, embed_url)
@@ -92,6 +108,7 @@ class Orchestrator:
             logger.exception("Failed to read contents for chunking")
             return
 
+        # Skip re-embedding if the collection already has data — idempotent by design.
         collection_size = rag_handler.collection.count()
         if collection_size == 0:
             logger.info("Collection is empty — embedding %d document(s).", len(contents))
@@ -137,6 +154,48 @@ class Orchestrator:
         return self.model_handler.ask_for_code(
             prompt,
             config_for_rag_coder,
+            provider=ai_provider,
+            model=ai_model,
+            base_url=ai_base_url,
+        )
+
+    def check_deprecated(
+        self,
+        code: str,
+        name: str,
+        rewrite: bool = True,
+        ai_provider: str = DEFAULT_AI_PROVIDER,
+        ai_model: str = DEFAULT_AI_MODEL,
+        ai_base_url: str = DEFAULT_AI_BASE_URL,
+    ) -> str:
+        collection_name = self.db.get_collection_name(name)
+        if not collection_name:
+            return f"Error: I haven't learned about the library '{name}'."
+
+        embed_model, embed_url = self.db.get_embed_config(name)
+        ollama_ef = get_embedding_function(
+            model_name=embed_model or DEFAULT_EMBED_MODEL,
+            url=embed_url or DEFAULT_EMBED_URL,
+        )
+
+        rag_handler = Rag_Handler(ollama_ef=ollama_ef, collection_name=collection_name)
+        results = []
+        # Bias the semantic search toward deprecation/migration sections of the docs.
+        deprecation_query = f"deprecated removed changed migration upgrade {code[:300]}"
+        try:
+            if rag_handler.collection.count() > 0:
+                results = rag_handler.query(deprecation_query)
+                logger.info("Deprecation query results found for code snippet.")
+            else:
+                logger.warning("ChromaDB is empty for %s", name)
+        except Exception:
+            logger.exception("Failed to query RAG database for deprecation check.")
+
+        action = "rewrite the code using the current API" if rewrite else "identify all deprecated usages without rewriting"
+        prompt = f'user code:\n```\n{code}\n```\n\ntask: {action}\n\nrelevant library documentation:\n{results}'
+        return self.model_handler.ask_for_code(
+            prompt,
+            config_for_deprecated_checker,
             provider=ai_provider,
             model=ai_model,
             base_url=ai_base_url,
