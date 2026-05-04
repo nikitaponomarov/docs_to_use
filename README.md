@@ -1,15 +1,15 @@
 # Docs_to_use
 
-A full-stack RAG (Retrieval-Augmented Generation) application that lets you query any library's documentation in natural language and detect deprecated API usage in your code.
+A full-stack RAG (Retrieval-Augmented Generation) application that turns any library's documentation into a queryable knowledge base.
 
-Point it at a docs URL — it scrapes, chunks, and embeds the content automatically. From that point on you can ask questions or paste code snippets to find and rewrite deprecated patterns, all grounded in the actual documentation rather than model hallucinations.
+Point it at a docs URL — it scrapes, chunks, and embeds the content automatically. From that point on you can ask questions in natural language, or paste your code to check it against the docs for deprecated functions, removed methods, and outdated patterns — and get a rewritten version using the current API.
 
 ---
 
 ## Features
 
 - **Documentation Q&A** — ask anything about a library and get answers backed by its official docs
-- **Deprecated code detection** — paste a code snippet and get a list of deprecated usages with migration guidance
+- **Deprecated code check** — paste a code snippet and get a list of deprecated functions, removed methods, and outdated patterns based on the actual docs
 - **Automatic rewriting** — optionally receive a fully migrated version of your code using the current API
 - **Multi-provider AI** — switch between Google Gemini and a local Ollama model per request
 - **Self-learning** — new libraries are scraped and embedded in the background on first query; no manual ingestion step
