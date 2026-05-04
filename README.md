@@ -1,4 +1,4 @@
-# Docs_to_use
+# Docs to use
 
 A full-stack RAG (Retrieval-Augmented Generation) application that turns any library's documentation into a queryable knowledge base.
 
