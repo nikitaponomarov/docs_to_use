@@ -18,29 +18,8 @@ Point it at a docs URL — it scrapes, chunks, and embeds the content automatica
 ---
 
 ## Architecture
+![alt text](images/image.png)
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Next.js Frontend (Clerk auth, React Markdown, Framer Motion)    │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │ HTTP
-┌────────────────────────────▼─────────────────────────────────────┐
-│  FastAPI  (rate-limited REST API)                                 │
-│  ┌─────────────┐   ┌──────────────────────────────────────────┐  │
-│  │ Orchestrator│   │ ModelHandler                             │  │
-│  │             │   │  ├─ Gemini (google-genai)                │  │
-│  │  scrape ──► │──►│  └─ Ollama (local, via REST)             │  │
-│  │  embed  ──► │   └──────────────────────────────────────────┘  │
-│  │  ask    ──► │                                                  │
-│  │  deprecated►│                                                  │
-│  └──────┬──────┘                                                  │
-│         │                                                         │
-│  ┌──────▼──────┐   ┌──────────────┐   ┌─────────────────────┐   │
-│  │   SQLite    │   │   ChromaDB   │   │   Jina AI Reader    │   │
-│  │ (raw pages) │   │ (embeddings) │   │ (web scraping)      │   │
-│  └─────────────┘   └──────────────┘   └─────────────────────┘   │
-└──────────────────────────────────────────────────────────────────┘
-```
 
 **Data flow for a new library:**
 1. First query arrives with a `url` field
