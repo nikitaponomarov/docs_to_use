@@ -1,4 +1,4 @@
-# Docs RAG
+# Docs_to_use
 
 A full-stack RAG (Retrieval-Augmented Generation) application that lets you query any library's documentation in natural language and detect deprecated API usage in your code.
 
