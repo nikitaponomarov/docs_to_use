@@ -1,6 +1,10 @@
 import chromadb
+from chromadb.utils.embedding_functions.ollama_embedding_function import OllamaEmbeddingFunction
 from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 import uuid
+
+def get_embedding_function(model_name: str = "mxbai-embed-large", url: str = "http://localhost:11434/api/embeddings"):
+    return OllamaEmbeddingFunction(url=url, model_name=model_name)
 
 class Rag_Handler:
     """Handler for preparing and querying documents in a ChromaDB collection.

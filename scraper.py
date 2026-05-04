@@ -61,18 +61,15 @@ class WebScrapper:
         doc_keywords = ['docs', 'documentation', 'guide', 'manual', 'reference', 'api', 'developer', 'learn', 'getting-started', 'tutorial', 'examples', 'resources', 'support', 'help', 'faq']
         return any(keyword in url.lower() for keyword in doc_keywords)
 
-    def get_data(self):
+    def get_data(self, url=None):
         """Fetch page content using a pre-rendering proxy service.
-
-        Returns the raw HTML/text body returned by the proxy. The
-        implementation uses a fixed Authorization header as in the
-        original project (consider moving secrets to configuration).
 
         Returns:
             str: Response text from the GET request.
         """
+        target = url or self.url
         headers = {
             "Authorization": f"Bearer {os.getenv('JINA_API_KEY')}"
             }
-        response = requests.get(f'https://r.jina.ai/{self.url}', headers=headers)
+        response = requests.get(f'https://r.jina.ai/{target}', headers=headers)
         return response.text
