@@ -141,7 +141,7 @@ Analyze a code snippet for deprecated API usage.
 ```bash
 # 1. Clone and enter the repo
 git clone <repo-url>
-cd docs-rag
+cd docs_to_use
 
 # 2. Create a virtual environment
 python -m venv .venv
