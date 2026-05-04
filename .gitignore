@@ -5,3 +5,5 @@ my_app.log
 web_content.db
 my-ai-frontend/.env.local
 chroma_db/
+node_modules/
+.next/
